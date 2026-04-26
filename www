@@ -18,11 +18,7 @@ end
 
 -- Item Table
 local targetItems = {
-    {"Void Champion", 1},
-    {"Black Hole", 1},
-    {"Infernal Guardian", 1},
-    {"Overseer", 1},
-    {"Champion Axe 2", 3}
+    {"Overseer 1", 1}
 }
 
 -- IDLE SCRIPT MANAGER

